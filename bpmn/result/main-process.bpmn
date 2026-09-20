@@ -1,0 +1,1981 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_AccessPass" targetNamespace="https://example.org/bpmn/access-pass" exporter="Camunda Web Modeler" exporterVersion="7143633" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <bpmn:error id="Error_RequiredReject" name="Отказ обязательного согласующего" errorCode="Error_RequiredReject" />
+  <bpmn:error id="Error_Cancelled" name="Отмена инициатором" errorCode="Error_Cancelled" />
+  <bpmn:message id="Message_Ready" name="Пропуск готов" />
+  <bpmn:message id="Message_Arrival" name="Получатель прибыл" />
+  <bpmn:message id="Message_NoPickup" name="Отказ от получения" />
+  <bpmn:message id="Message_VisitorArrival" name="Посетитель прибыл" />
+  <bpmn:message id="Message_Recall" name="Запрос досрочного отзыва" />
+  <bpmn:message id="Message_Returned" name="Пропуск возвращён" />
+  <bpmn:message id="Message_Lost" name="Пропуск потерян" />
+  <bpmn:process id="Process_Main" name="Оформление и выдача пропуска" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_Process_Main">
+      <bpmn:lane id="Lane_Extra" name="Дополнительные согласующие" />
+      <bpmn:lane id="Lane_Manager" name="Руководитель подразделения" />
+      <bpmn:lane id="Lane_Security" name="Служба безопасности">
+        <bpmn:flowNodeRef>Gateway_VisitorSecurity</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_VisitorSecurity</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Bureau" name="Бюро пропусков">
+        <bpmn:flowNodeRef>Task_CheckDocs</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_DocsOK</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Receive_Pickup</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_VisitorMatch</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_MakePass</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CompareVisitor</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Receive_VisitorArrival</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_VerifyIssue</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_HandVisitor</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_VisitorIssued</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RecordIssue</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_System" name="Система">
+        <bpmn:flowNodeRef>Task_CheckRequired</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Complete</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyReady</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_PickupEvent</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Receive_NoPickup</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Call_Mandatory</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyCancel</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyReject</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Rejected</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Call_Additional</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Type</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyHost</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PrintVisitor</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CloseVisit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Activate</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_BlockUnclaimed</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Unclaimed</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Issued</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_VisitCancelled</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Boundary_CancelMandatory</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Boundary_RequiredReject</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Boundary_CancelAdditional</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Init" name="Инициатор">
+        <bpmn:flowNodeRef>Start_Application</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Create</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Send</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_RequiredChoice</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_DocChoice</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Cancelled</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_HostDecision</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_HostConfirms</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CorrectRequired</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CorrectDocs</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_Application" name="Потребность в пропуске">
+      <bpmn:outgoing>F1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_Create" name="Создать и заполнить заявку">
+      <bpmn:incoming>F1</bpmn:incoming>
+      <bpmn:outgoing>F2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_Send" name="Отправить заявку">
+      <bpmn:incoming>F2</bpmn:incoming>
+      <bpmn:outgoing>F3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_CheckRequired" name="Проверить обязательные данные">
+      <bpmn:incoming>F3</bpmn:incoming>
+      <bpmn:incoming>F8</bpmn:incoming>
+      <bpmn:outgoing>F4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_Complete" name="Достаточно данных?">
+      <bpmn:incoming>F4</bpmn:incoming>
+      <bpmn:outgoing>F5</bpmn:outgoing>
+      <bpmn:outgoing>F6</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="Gateway_RequiredChoice" name="Повторно отправить?">
+      <bpmn:incoming>F7</bpmn:incoming>
+      <bpmn:outgoing>F8</bpmn:outgoing>
+      <bpmn:outgoing>F9</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_CheckDocs" name="Проверить данные и документы">
+      <bpmn:incoming>F5</bpmn:incoming>
+      <bpmn:incoming>F14</bpmn:incoming>
+      <bpmn:outgoing>F10</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_DocsOK" name="Документы корректны?">
+      <bpmn:incoming>F10</bpmn:incoming>
+      <bpmn:outgoing>F11</bpmn:outgoing>
+      <bpmn:outgoing>F12</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="Gateway_DocChoice" name="Повторно отправить?">
+      <bpmn:incoming>F13</bpmn:incoming>
+      <bpmn:outgoing>F14</bpmn:outgoing>
+      <bpmn:outgoing>F15</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_Cancelled" name="Отмена">
+      <bpmn:incoming>F9</bpmn:incoming>
+      <bpmn:incoming>F15</bpmn:incoming>
+      <bpmn:incoming>F21</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sendTask id="Task_NotifyReady" name="Уведомить инициатора и получателя">
+      <bpmn:incoming>F24</bpmn:incoming>
+      <bpmn:outgoing>F25</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:eventBasedGateway id="Gateway_PickupEvent" name="Явка или отказ">
+      <bpmn:incoming>F25</bpmn:incoming>
+      <bpmn:outgoing>F26</bpmn:outgoing>
+      <bpmn:outgoing>F27</bpmn:outgoing>
+    </bpmn:eventBasedGateway>
+    <bpmn:receiveTask id="Receive_Pickup" name="Получатель прибыл и предъявил документ">
+      <bpmn:incoming>F26</bpmn:incoming>
+      <bpmn:outgoing>F28</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:receiveTask id="Receive_NoPickup" name="Получатель отказался забирать">
+      <bpmn:incoming>F27</bpmn:incoming>
+      <bpmn:outgoing>F32</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:exclusiveGateway id="Gateway_VisitorMatch" name="Данные совпали?">
+      <bpmn:incoming>F36</bpmn:incoming>
+      <bpmn:outgoing>F37</bpmn:outgoing>
+      <bpmn:outgoing>F38</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_HostDecision" name="Подтвердить изменения / отказаться">
+      <bpmn:incoming>F39</bpmn:incoming>
+      <bpmn:outgoing>F40</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_HostConfirms" name="Изменения подтверждены?">
+      <bpmn:incoming>F40</bpmn:incoming>
+      <bpmn:outgoing>F41</bpmn:outgoing>
+      <bpmn:outgoing>F42</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_CorrectRequired" name="Исправить данные / отменить">
+      <bpmn:incoming>F6</bpmn:incoming>
+      <bpmn:outgoing>F7</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_CorrectDocs" name="Исправить документы / отменить">
+      <bpmn:incoming>F12</bpmn:incoming>
+      <bpmn:outgoing>F13</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:callActivity id="Call_Mandatory" name="Обязательные согласования" calledElement="Process_Mandatory">
+      <bpmn:incoming>F11</bpmn:incoming>
+      <bpmn:outgoing>F16</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:serviceTask id="Task_NotifyCancel" name="Закрыть отменённую заявку">
+      <bpmn:incoming>F20</bpmn:incoming>
+      <bpmn:incoming>F19</bpmn:incoming>
+      <bpmn:outgoing>F21</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_NotifyReject" name="Уведомить о причине отказа">
+      <bpmn:incoming>F17</bpmn:incoming>
+      <bpmn:outgoing>F18</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Rejected" name="Отказ">
+      <bpmn:incoming>F18</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:callActivity id="Call_Additional" name="Дополнительные согласования" calledElement="Process_Additional">
+      <bpmn:incoming>F16</bpmn:incoming>
+      <bpmn:outgoing>F22</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:exclusiveGateway id="Gateway_Type" name="Тип пропуска?">
+      <bpmn:incoming>F22</bpmn:incoming>
+      <bpmn:outgoing>F23</bpmn:outgoing>
+      <bpmn:outgoing>F34</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:manualTask id="Task_MakePass" name="Изготовить постоянный / временный пропуск">
+      <bpmn:incoming>F23</bpmn:incoming>
+      <bpmn:outgoing>F24</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:manualTask id="Task_CompareVisitor" name="Сверить оригинал документа с заявкой">
+      <bpmn:incoming>F35</bpmn:incoming>
+      <bpmn:outgoing>F36</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:receiveTask id="Receive_VisitorArrival" name="Посетитель прибыл на проходную">
+      <bpmn:incoming>F34</bpmn:incoming>
+      <bpmn:outgoing>F35</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:sendTask id="Task_NotifyHost" name="Уведомить принимающего сотрудника">
+      <bpmn:incoming>F38</bpmn:incoming>
+      <bpmn:outgoing>F39</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:serviceTask id="Task_PrintVisitor" name="Напечатать разовый пропуск">
+      <bpmn:incoming>F37</bpmn:incoming>
+      <bpmn:incoming>F44</bpmn:incoming>
+      <bpmn:outgoing>F46</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_CloseVisit" name="Отменить посещение">
+      <bpmn:incoming>F42</bpmn:incoming>
+      <bpmn:incoming>F45</bpmn:incoming>
+      <bpmn:outgoing>F48</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_VisitorSecurity" name="СБ согласовала?">
+      <bpmn:incoming>F43</bpmn:incoming>
+      <bpmn:outgoing>F44</bpmn:outgoing>
+      <bpmn:outgoing>F45</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_VisitorSecurity" name="Повторно проверить изменённые данные">
+      <bpmn:incoming>F41</bpmn:incoming>
+      <bpmn:outgoing>F43</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:manualTask id="Task_VerifyIssue" name="Сверить документ">
+      <bpmn:incoming>F28</bpmn:incoming>
+      <bpmn:outgoing>F29</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:manualTask id="Task_HandVisitor" name="Выдать разовый пропуск">
+      <bpmn:incoming>F46</bpmn:incoming>
+      <bpmn:outgoing>F47</bpmn:outgoing>
+    </bpmn:manualTask>
+    <bpmn:endEvent id="End_VisitorIssued" name="Разовый выдан">
+      <bpmn:incoming>F47</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:userTask id="Task_RecordIssue" name="Зафиксировать выдачу">
+      <bpmn:incoming>F29</bpmn:incoming>
+      <bpmn:outgoing>F30</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_Activate" name="Активировать разрешённые права в СКУД">
+      <bpmn:incoming>F30</bpmn:incoming>
+      <bpmn:outgoing>F31</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_BlockUnclaimed" name="Заблокировать пропуск и закрыть заявку">
+      <bpmn:incoming>F32</bpmn:incoming>
+      <bpmn:outgoing>F33</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Unclaimed" name="Не получен">
+      <bpmn:incoming>F33</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_Issued" name="Выдан и активирован">
+      <bpmn:incoming>F31</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_VisitCancelled" name="Посещение отменено">
+      <bpmn:incoming>F48</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:boundaryEvent id="Boundary_CancelMandatory" attachedToRef="Call_Mandatory">
+      <bpmn:outgoing>F19</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_Cancelled" />
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="Boundary_RequiredReject" attachedToRef="Call_Mandatory">
+      <bpmn:outgoing>F17</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_RequiredReject" />
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="Boundary_CancelAdditional" attachedToRef="Call_Additional">
+      <bpmn:outgoing>F20</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_Cancelled" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="F1" sourceRef="Start_Application" targetRef="Task_Create" />
+    <bpmn:sequenceFlow id="F2" sourceRef="Task_Create" targetRef="Task_Send" />
+    <bpmn:sequenceFlow id="F3" sourceRef="Task_Send" targetRef="Task_CheckRequired" />
+    <bpmn:sequenceFlow id="F8" name="Да" sourceRef="Gateway_RequiredChoice" targetRef="Task_CheckRequired" />
+    <bpmn:sequenceFlow id="F4" sourceRef="Task_CheckRequired" targetRef="Gateway_Complete" />
+    <bpmn:sequenceFlow id="F5" name="Да" sourceRef="Gateway_Complete" targetRef="Task_CheckDocs" />
+    <bpmn:sequenceFlow id="F6" name="Нет" sourceRef="Gateway_Complete" targetRef="Task_CorrectRequired" />
+    <bpmn:sequenceFlow id="F7" sourceRef="Task_CorrectRequired" targetRef="Gateway_RequiredChoice" />
+    <bpmn:sequenceFlow id="F9" name="Нет" sourceRef="Gateway_RequiredChoice" targetRef="End_Cancelled" />
+    <bpmn:sequenceFlow id="F14" name="Да" sourceRef="Gateway_DocChoice" targetRef="Task_CheckDocs" />
+    <bpmn:sequenceFlow id="F10" sourceRef="Task_CheckDocs" targetRef="Gateway_DocsOK" />
+    <bpmn:sequenceFlow id="F11" name="Да" sourceRef="Gateway_DocsOK" targetRef="Call_Mandatory" />
+    <bpmn:sequenceFlow id="F12" name="Нет" sourceRef="Gateway_DocsOK" targetRef="Task_CorrectDocs" />
+    <bpmn:sequenceFlow id="F13" sourceRef="Task_CorrectDocs" targetRef="Gateway_DocChoice" />
+    <bpmn:sequenceFlow id="F15" name="Нет" sourceRef="Gateway_DocChoice" targetRef="End_Cancelled" />
+    <bpmn:sequenceFlow id="F21" sourceRef="Task_NotifyCancel" targetRef="End_Cancelled" />
+    <bpmn:sequenceFlow id="F24" sourceRef="Task_MakePass" targetRef="Task_NotifyReady" />
+    <bpmn:sequenceFlow id="F25" sourceRef="Task_NotifyReady" targetRef="Gateway_PickupEvent" />
+    <bpmn:sequenceFlow id="F26" name="Явка" sourceRef="Gateway_PickupEvent" targetRef="Receive_Pickup" />
+    <bpmn:sequenceFlow id="F27" name="Отказ" sourceRef="Gateway_PickupEvent" targetRef="Receive_NoPickup" />
+    <bpmn:sequenceFlow id="F28" sourceRef="Receive_Pickup" targetRef="Task_VerifyIssue" />
+    <bpmn:sequenceFlow id="F32" sourceRef="Receive_NoPickup" targetRef="Task_BlockUnclaimed" />
+    <bpmn:sequenceFlow id="F36" sourceRef="Task_CompareVisitor" targetRef="Gateway_VisitorMatch" />
+    <bpmn:sequenceFlow id="F37" name="Да" sourceRef="Gateway_VisitorMatch" targetRef="Task_PrintVisitor" />
+    <bpmn:sequenceFlow id="F38" name="Нет" sourceRef="Gateway_VisitorMatch" targetRef="Task_NotifyHost" />
+    <bpmn:sequenceFlow id="F39" sourceRef="Task_NotifyHost" targetRef="Task_HostDecision" />
+    <bpmn:sequenceFlow id="F40" sourceRef="Task_HostDecision" targetRef="Gateway_HostConfirms" />
+    <bpmn:sequenceFlow id="F41" name="Подтвердить" sourceRef="Gateway_HostConfirms" targetRef="Task_VisitorSecurity" />
+    <bpmn:sequenceFlow id="F42" name="Отказаться" sourceRef="Gateway_HostConfirms" targetRef="Task_CloseVisit" />
+    <bpmn:sequenceFlow id="F16" name="Согласовано" sourceRef="Call_Mandatory" targetRef="Call_Additional" />
+    <bpmn:sequenceFlow id="F20" sourceRef="Boundary_CancelAdditional" targetRef="Task_NotifyCancel" />
+    <bpmn:sequenceFlow id="F19" sourceRef="Boundary_CancelMandatory" targetRef="Task_NotifyCancel" />
+    <bpmn:sequenceFlow id="F17" sourceRef="Boundary_RequiredReject" targetRef="Task_NotifyReject" />
+    <bpmn:sequenceFlow id="F18" sourceRef="Task_NotifyReject" targetRef="End_Rejected" />
+    <bpmn:sequenceFlow id="F22" sourceRef="Call_Additional" targetRef="Gateway_Type" />
+    <bpmn:sequenceFlow id="F23" name="Постоянный / временный" sourceRef="Gateway_Type" targetRef="Task_MakePass" />
+    <bpmn:sequenceFlow id="F34" name="Разовый" sourceRef="Gateway_Type" targetRef="Receive_VisitorArrival" />
+    <bpmn:sequenceFlow id="F35" sourceRef="Receive_VisitorArrival" targetRef="Task_CompareVisitor" />
+    <bpmn:sequenceFlow id="F44" name="Согласовано" sourceRef="Gateway_VisitorSecurity" targetRef="Task_PrintVisitor" />
+    <bpmn:sequenceFlow id="F46" sourceRef="Task_PrintVisitor" targetRef="Task_HandVisitor" />
+    <bpmn:sequenceFlow id="F45" name="Отказ" sourceRef="Gateway_VisitorSecurity" targetRef="Task_CloseVisit" />
+    <bpmn:sequenceFlow id="F48" sourceRef="Task_CloseVisit" targetRef="End_VisitCancelled" />
+    <bpmn:sequenceFlow id="F43" sourceRef="Task_VisitorSecurity" targetRef="Gateway_VisitorSecurity" />
+    <bpmn:sequenceFlow id="F29" sourceRef="Task_VerifyIssue" targetRef="Task_RecordIssue" />
+    <bpmn:sequenceFlow id="F47" sourceRef="Task_HandVisitor" targetRef="End_VisitorIssued" />
+    <bpmn:sequenceFlow id="F30" sourceRef="Task_RecordIssue" targetRef="Task_Activate" />
+    <bpmn:sequenceFlow id="F31" sourceRef="Task_Activate" targetRef="End_Issued" />
+    <bpmn:sequenceFlow id="F33" sourceRef="Task_BlockUnclaimed" targetRef="End_Unclaimed" />
+  </bpmn:process>
+  <bpmn:process id="Process_Mandatory" name="Обязательные согласования" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_Process_Mandatory">
+      <bpmn:lane id="Lane_Mand_Init" name="Инициатор">
+        <bpmn:flowNodeRef>Task_ProvideInfo</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_InfoChoice</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_InfoCancel</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ChangeZones</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ZoneChoice</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_ZoneCancel</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ProvideRecheck</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_RecheckChoice</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_RecheckCancel</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Mand_Sec" name="Служба безопасности">
+        <bpmn:flowNodeRef>Task_SecReview</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_SecResult</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_SecReject</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_SecRecheck</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_RecheckResult</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_RecheckReject</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Mand_Mgr" name="Руководитель подразделения">
+        <bpmn:flowNodeRef>Task_MgrReview</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_MgrResult</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_MgrReject</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Mand_System" name="Система">
+        <bpmn:flowNodeRef>Start_Mandatory</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_MandSplit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_MandJoin</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_NewHigh</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_MandatoryApproved</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_Mandatory" name="После проверки документов">
+      <bpmn:outgoing>MA1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:parallelGateway id="Gateway_MandSplit" name="Параллельно">
+      <bpmn:incoming>MA1</bpmn:incoming>
+      <bpmn:outgoing>MA2</bpmn:outgoing>
+      <bpmn:outgoing>MA3</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:userTask id="Task_SecReview" name="Проверить заявку">
+      <bpmn:incoming>MA2</bpmn:incoming>
+      <bpmn:incoming>MA9</bpmn:incoming>
+      <bpmn:outgoing>MA4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_SecResult" name="Решение СБ">
+      <bpmn:incoming>MA4</bpmn:incoming>
+      <bpmn:outgoing>MA5</bpmn:outgoing>
+      <bpmn:outgoing>MA6</bpmn:outgoing>
+      <bpmn:outgoing>MA7</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_ProvideInfo" name="Предоставить дополнительные сведения">
+      <bpmn:incoming>MA7</bpmn:incoming>
+      <bpmn:outgoing>MA8</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_InfoChoice" name="Продолжить?">
+      <bpmn:incoming>MA8</bpmn:incoming>
+      <bpmn:outgoing>MA9</bpmn:outgoing>
+      <bpmn:outgoing>MA10</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_SecReject" name="Отказ СБ">
+      <bpmn:incoming>MA6</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="Error_RequiredReject" />
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_InfoCancel" name="Отмена">
+      <bpmn:incoming>MA10</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="Error_Cancelled" />
+    </bpmn:endEvent>
+    <bpmn:userTask id="Task_MgrReview" name="Согласовать заявку и зоны">
+      <bpmn:incoming>MA3</bpmn:incoming>
+      <bpmn:incoming>MA16</bpmn:incoming>
+      <bpmn:outgoing>MA11</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_MgrResult" name="Решение руководителя">
+      <bpmn:incoming>MA11</bpmn:incoming>
+      <bpmn:outgoing>MA12</bpmn:outgoing>
+      <bpmn:outgoing>MA13</bpmn:outgoing>
+      <bpmn:outgoing>MA14</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_ChangeZones" name="Изменить зоны доступа">
+      <bpmn:incoming>MA14</bpmn:incoming>
+      <bpmn:outgoing>MA15</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_ZoneChoice" name="Продолжить?">
+      <bpmn:incoming>MA15</bpmn:incoming>
+      <bpmn:outgoing>MA16</bpmn:outgoing>
+      <bpmn:outgoing>MA17</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_MgrReject" name="Отказ руководителя">
+      <bpmn:incoming>MA13</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="Error_RequiredReject" />
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_ZoneCancel" name="Отмена">
+      <bpmn:incoming>MA17</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="Error_Cancelled" />
+    </bpmn:endEvent>
+    <bpmn:parallelGateway id="Gateway_MandJoin" name="Оба согласования завершены">
+      <bpmn:incoming>MA5</bpmn:incoming>
+      <bpmn:incoming>MA12</bpmn:incoming>
+      <bpmn:outgoing>MA18</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:exclusiveGateway id="Gateway_NewHigh" name="Добавлена новая зона повышенной безопасности?">
+      <bpmn:incoming>MA18</bpmn:incoming>
+      <bpmn:outgoing>MA19</bpmn:outgoing>
+      <bpmn:outgoing>MA20</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_SecRecheck" name="Повторно проверить новые зоны / данные">
+      <bpmn:incoming>MA20</bpmn:incoming>
+      <bpmn:incoming>MA26</bpmn:incoming>
+      <bpmn:outgoing>MA21</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_RecheckResult" name="Решение СБ">
+      <bpmn:incoming>MA21</bpmn:incoming>
+      <bpmn:outgoing>MA22</bpmn:outgoing>
+      <bpmn:outgoing>MA23</bpmn:outgoing>
+      <bpmn:outgoing>MA24</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_ProvideRecheck" name="Предоставить сведения">
+      <bpmn:incoming>MA24</bpmn:incoming>
+      <bpmn:outgoing>MA25</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_RecheckChoice" name="Продолжить?">
+      <bpmn:incoming>MA25</bpmn:incoming>
+      <bpmn:outgoing>MA26</bpmn:outgoing>
+      <bpmn:outgoing>MA27</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_RecheckReject" name="Отказ СБ">
+      <bpmn:incoming>MA23</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="Error_RequiredReject" />
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_RecheckCancel" name="Отмена">
+      <bpmn:incoming>MA27</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="Error_Cancelled" />
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_MandatoryApproved" name="Обязательные согласования пройдены">
+      <bpmn:incoming>MA19</bpmn:incoming>
+      <bpmn:incoming>MA22</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="MA1" sourceRef="Start_Mandatory" targetRef="Gateway_MandSplit" />
+    <bpmn:sequenceFlow id="MA2" name="СБ" sourceRef="Gateway_MandSplit" targetRef="Task_SecReview" />
+    <bpmn:sequenceFlow id="MA3" name="Руководитель" sourceRef="Gateway_MandSplit" targetRef="Task_MgrReview" />
+    <bpmn:sequenceFlow id="MA4" sourceRef="Task_SecReview" targetRef="Gateway_SecResult" />
+    <bpmn:sequenceFlow id="MA5" name="Согласовать" sourceRef="Gateway_SecResult" targetRef="Gateway_MandJoin" />
+    <bpmn:sequenceFlow id="MA6" name="Отказать" sourceRef="Gateway_SecResult" targetRef="End_SecReject" />
+    <bpmn:sequenceFlow id="MA7" name="Запросить сведения" sourceRef="Gateway_SecResult" targetRef="Task_ProvideInfo" />
+    <bpmn:sequenceFlow id="MA8" sourceRef="Task_ProvideInfo" targetRef="Gateway_InfoChoice" />
+    <bpmn:sequenceFlow id="MA9" name="Предоставить" sourceRef="Gateway_InfoChoice" targetRef="Task_SecReview" />
+    <bpmn:sequenceFlow id="MA10" name="Отменить" sourceRef="Gateway_InfoChoice" targetRef="End_InfoCancel" />
+    <bpmn:sequenceFlow id="MA11" sourceRef="Task_MgrReview" targetRef="Gateway_MgrResult" />
+    <bpmn:sequenceFlow id="MA12" name="Согласовать" sourceRef="Gateway_MgrResult" targetRef="Gateway_MandJoin" />
+    <bpmn:sequenceFlow id="MA13" name="Отказать" sourceRef="Gateway_MgrResult" targetRef="End_MgrReject" />
+    <bpmn:sequenceFlow id="MA14" name="Изменить зоны" sourceRef="Gateway_MgrResult" targetRef="Task_ChangeZones" />
+    <bpmn:sequenceFlow id="MA15" sourceRef="Task_ChangeZones" targetRef="Gateway_ZoneChoice" />
+    <bpmn:sequenceFlow id="MA16" name="Повторно" sourceRef="Gateway_ZoneChoice" targetRef="Task_MgrReview" />
+    <bpmn:sequenceFlow id="MA17" name="Отменить" sourceRef="Gateway_ZoneChoice" targetRef="End_ZoneCancel" />
+    <bpmn:sequenceFlow id="MA18" sourceRef="Gateway_MandJoin" targetRef="Gateway_NewHigh" />
+    <bpmn:sequenceFlow id="MA19" name="Нет" sourceRef="Gateway_NewHigh" targetRef="End_MandatoryApproved" />
+    <bpmn:sequenceFlow id="MA20" name="Да" sourceRef="Gateway_NewHigh" targetRef="Task_SecRecheck" />
+    <bpmn:sequenceFlow id="MA21" sourceRef="Task_SecRecheck" targetRef="Gateway_RecheckResult" />
+    <bpmn:sequenceFlow id="MA22" name="Согласовать" sourceRef="Gateway_RecheckResult" targetRef="End_MandatoryApproved" />
+    <bpmn:sequenceFlow id="MA23" name="Отказать" sourceRef="Gateway_RecheckResult" targetRef="End_RecheckReject" />
+    <bpmn:sequenceFlow id="MA24" name="Сведения" sourceRef="Gateway_RecheckResult" targetRef="Task_ProvideRecheck" />
+    <bpmn:sequenceFlow id="MA25" sourceRef="Task_ProvideRecheck" targetRef="Gateway_RecheckChoice" />
+    <bpmn:sequenceFlow id="MA26" name="Предоставить" sourceRef="Gateway_RecheckChoice" targetRef="Task_SecRecheck" />
+    <bpmn:sequenceFlow id="MA27" name="Отменить" sourceRef="Gateway_RecheckChoice" targetRef="End_RecheckCancel" />
+  </bpmn:process>
+  <bpmn:process id="Process_Additional" name="Дополнительные согласования" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_Process_Additional">
+      <bpmn:lane id="Lane_Add_Init" name="Инициатор">
+        <bpmn:flowNodeRef>Task_NoZonesDecision</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ContinueNoZones</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_AddCancel</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Add_System" name="Система">
+        <bpmn:flowNodeRef>Start_Additional</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_AddSplit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_CarRequested</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RemoveCar</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ZonesRequested</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_AnyZone</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ZonesMerge</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_AddJoin</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Additional</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Add_Transport" name="Транспортная служба">
+        <bpmn:flowNodeRef>Task_TransportReview</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_CarAllowed</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_CarMerge</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Add_Owners" name="Ответственные за специальные зоны">
+        <bpmn:flowNodeRef>SubProcess_EachZone</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_Additional" name="После обязательных согласований">
+      <bpmn:outgoing>AD1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:parallelGateway id="Gateway_AddSplit" name="Параллельно">
+      <bpmn:incoming>AD1</bpmn:incoming>
+      <bpmn:outgoing>AD2</bpmn:outgoing>
+      <bpmn:outgoing>AD3</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:exclusiveGateway id="Gateway_CarRequested" name="Запрошен автомобиль?">
+      <bpmn:incoming>AD2</bpmn:incoming>
+      <bpmn:outgoing>AD4</bpmn:outgoing>
+      <bpmn:outgoing>AD5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_TransportReview" name="Разрешить / запретить въезд">
+      <bpmn:incoming>AD4</bpmn:incoming>
+      <bpmn:outgoing>AD6</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_CarAllowed" name="Въезд разрешён?">
+      <bpmn:incoming>AD6</bpmn:incoming>
+      <bpmn:outgoing>AD7</bpmn:outgoing>
+      <bpmn:outgoing>AD8</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_RemoveCar" name="Исключить автомобиль; сохранить пешеходный пропуск">
+      <bpmn:incoming>AD8</bpmn:incoming>
+      <bpmn:outgoing>AD9</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_ZonesRequested" name="Есть специальные зоны?">
+      <bpmn:incoming>AD3</bpmn:incoming>
+      <bpmn:outgoing>AD10</bpmn:outgoing>
+      <bpmn:outgoing>AD11</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:subProcess id="SubProcess_EachZone" name="Для каждой зоны: согласовать; при отказе исключить зону">
+      <bpmn:incoming>AD10</bpmn:incoming>
+      <bpmn:outgoing>AD12</bpmn:outgoing>
+      <bpmn:multiInstanceLoopCharacteristics />
+      <bpmn:startEvent id="Start_ZoneInstance" name="Зона выбрана" />
+      <bpmn:userTask id="Task_ZoneOwnerReview" name="Ответственный согласует зону" />
+      <bpmn:exclusiveGateway id="Gateway_ZoneAllowed" name="Зона разрешена?" />
+      <bpmn:serviceTask id="Task_ExcludeZone" name="Исключить отклонённую зону" />
+      <bpmn:endEvent id="End_ZoneAllowed" name="Решение сохранено" />
+      <bpmn:endEvent id="End_ZoneExcluded" name="Зона исключена" />
+      <bpmn:sequenceFlow id="ZI1" sourceRef="Start_ZoneInstance" targetRef="Task_ZoneOwnerReview" />
+      <bpmn:sequenceFlow id="ZI2" sourceRef="Task_ZoneOwnerReview" targetRef="Gateway_ZoneAllowed" />
+      <bpmn:sequenceFlow id="ZI3" name="Да" sourceRef="Gateway_ZoneAllowed" targetRef="End_ZoneAllowed" />
+      <bpmn:sequenceFlow id="ZI4" name="Нет" sourceRef="Gateway_ZoneAllowed" targetRef="Task_ExcludeZone" />
+      <bpmn:sequenceFlow id="ZI5" sourceRef="Task_ExcludeZone" targetRef="End_ZoneExcluded" />
+    </bpmn:subProcess>
+    <bpmn:exclusiveGateway id="Gateway_AnyZone" name="Осталась разрешённая специальная зона?">
+      <bpmn:incoming>AD12</bpmn:incoming>
+      <bpmn:outgoing>AD13</bpmn:outgoing>
+      <bpmn:outgoing>AD14</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_NoZonesDecision" name="Продолжить без специальных зон / отменить">
+      <bpmn:incoming>AD14</bpmn:incoming>
+      <bpmn:outgoing>AD15</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_ContinueNoZones" name="Продолжить?">
+      <bpmn:incoming>AD15</bpmn:incoming>
+      <bpmn:outgoing>AD16</bpmn:outgoing>
+      <bpmn:outgoing>AD17</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="End_AddCancel" name="Отмена">
+      <bpmn:incoming>AD17</bpmn:incoming>
+      <bpmn:errorEventDefinition errorRef="Error_Cancelled" />
+    </bpmn:endEvent>
+    <bpmn:exclusiveGateway id="Gateway_CarMerge" name="Результат транспорта">
+      <bpmn:incoming>AD5</bpmn:incoming>
+      <bpmn:incoming>AD7</bpmn:incoming>
+      <bpmn:incoming>AD9</bpmn:incoming>
+      <bpmn:outgoing>AD18</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="Gateway_ZonesMerge" name="Результат зон">
+      <bpmn:incoming>AD11</bpmn:incoming>
+      <bpmn:incoming>AD13</bpmn:incoming>
+      <bpmn:incoming>AD16</bpmn:incoming>
+      <bpmn:outgoing>AD19</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:parallelGateway id="Gateway_AddJoin" name="Все применимые согласования завершены">
+      <bpmn:incoming>AD18</bpmn:incoming>
+      <bpmn:incoming>AD19</bpmn:incoming>
+      <bpmn:outgoing>AD20</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:endEvent id="End_Additional" name="Дополнительные согласования завершены">
+      <bpmn:incoming>AD20</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="AD1" sourceRef="Start_Additional" targetRef="Gateway_AddSplit" />
+    <bpmn:sequenceFlow id="AD2" name="Автомобиль" sourceRef="Gateway_AddSplit" targetRef="Gateway_CarRequested" />
+    <bpmn:sequenceFlow id="AD3" name="Зоны" sourceRef="Gateway_AddSplit" targetRef="Gateway_ZonesRequested" />
+    <bpmn:sequenceFlow id="AD4" name="Да" sourceRef="Gateway_CarRequested" targetRef="Task_TransportReview" />
+    <bpmn:sequenceFlow id="AD5" name="Нет" sourceRef="Gateway_CarRequested" targetRef="Gateway_CarMerge" />
+    <bpmn:sequenceFlow id="AD6" sourceRef="Task_TransportReview" targetRef="Gateway_CarAllowed" />
+    <bpmn:sequenceFlow id="AD7" name="Да" sourceRef="Gateway_CarAllowed" targetRef="Gateway_CarMerge" />
+    <bpmn:sequenceFlow id="AD8" name="Нет" sourceRef="Gateway_CarAllowed" targetRef="Task_RemoveCar" />
+    <bpmn:sequenceFlow id="AD9" name="Продолжить пешком" sourceRef="Task_RemoveCar" targetRef="Gateway_CarMerge" />
+    <bpmn:sequenceFlow id="AD10" name="Да" sourceRef="Gateway_ZonesRequested" targetRef="SubProcess_EachZone" />
+    <bpmn:sequenceFlow id="AD11" name="Нет" sourceRef="Gateway_ZonesRequested" targetRef="Gateway_ZonesMerge" />
+    <bpmn:sequenceFlow id="AD12" sourceRef="SubProcess_EachZone" targetRef="Gateway_AnyZone" />
+    <bpmn:sequenceFlow id="AD13" name="Да" sourceRef="Gateway_AnyZone" targetRef="Gateway_ZonesMerge" />
+    <bpmn:sequenceFlow id="AD14" name="Нет" sourceRef="Gateway_AnyZone" targetRef="Task_NoZonesDecision" />
+    <bpmn:sequenceFlow id="AD15" sourceRef="Task_NoZonesDecision" targetRef="Gateway_ContinueNoZones" />
+    <bpmn:sequenceFlow id="AD16" name="Без зон" sourceRef="Gateway_ContinueNoZones" targetRef="Gateway_ZonesMerge" />
+    <bpmn:sequenceFlow id="AD17" name="Отменить" sourceRef="Gateway_ContinueNoZones" targetRef="End_AddCancel" />
+    <bpmn:sequenceFlow id="AD18" sourceRef="Gateway_CarMerge" targetRef="Gateway_AddJoin" />
+    <bpmn:sequenceFlow id="AD19" sourceRef="Gateway_ZonesMerge" targetRef="Gateway_AddJoin" />
+    <bpmn:sequenceFlow id="AD20" sourceRef="Gateway_AddJoin" targetRef="End_Additional" />
+  </bpmn:process>
+  <bpmn:process id="Process_Recall" name="Досрочный отзыв выданного пропуска" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_Process_Recall">
+      <bpmn:lane id="Lane_Recall_Requester" name="Руководитель / HR / СБ">
+        <bpmn:flowNodeRef>Start_Recall</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Recall_System" name="Система">
+        <bpmn:flowNodeRef>Task_BlockNow</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyReturn</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ReturnEvent</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CreateInvestigation</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Lost</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Recall_Bureau" name="Бюро пропусков">
+        <bpmn:flowNodeRef>Receive_Returned</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Receive_Lost</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RecordReturn</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RegisterLoss</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Recalled</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_Recall" name="Запрос досрочного отзыва">
+      <bpmn:outgoing>RE1</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_Recall" />
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_BlockNow" name="Немедленно заблокировать пропуск в СКУД">
+      <bpmn:incoming>RE1</bpmn:incoming>
+      <bpmn:outgoing>RE2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sendTask id="Task_NotifyReturn" name="Уведомить о необходимости возврата">
+      <bpmn:incoming>RE2</bpmn:incoming>
+      <bpmn:outgoing>RE3</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:eventBasedGateway id="Gateway_ReturnEvent" name="Возврат или потеря">
+      <bpmn:incoming>RE3</bpmn:incoming>
+      <bpmn:outgoing>RE4</bpmn:outgoing>
+      <bpmn:outgoing>RE5</bpmn:outgoing>
+    </bpmn:eventBasedGateway>
+    <bpmn:receiveTask id="Receive_Returned" name="Физический пропуск возвращён">
+      <bpmn:incoming>RE4</bpmn:incoming>
+      <bpmn:outgoing>RE6</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:receiveTask id="Receive_Lost" name="Получено сообщение о потере">
+      <bpmn:incoming>RE5</bpmn:incoming>
+      <bpmn:outgoing>RE8</bpmn:outgoing>
+    </bpmn:receiveTask>
+    <bpmn:userTask id="Task_RecordReturn" name="Зафиксировать возврат">
+      <bpmn:incoming>RE6</bpmn:incoming>
+      <bpmn:outgoing>RE7</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_RegisterLoss" name="Зарегистрировать потерю">
+      <bpmn:incoming>RE8</bpmn:incoming>
+      <bpmn:outgoing>RE9</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_CreateInvestigation" name="Создать задачу на внутреннее расследование">
+      <bpmn:incoming>RE9</bpmn:incoming>
+      <bpmn:outgoing>RE10</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Recalled" name="Отозван и возвращён">
+      <bpmn:incoming>RE7</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_Lost" name="Отозван; потеря расследуется">
+      <bpmn:incoming>RE10</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="RE1" sourceRef="Start_Recall" targetRef="Task_BlockNow" />
+    <bpmn:sequenceFlow id="RE2" sourceRef="Task_BlockNow" targetRef="Task_NotifyReturn" />
+    <bpmn:sequenceFlow id="RE3" sourceRef="Task_NotifyReturn" targetRef="Gateway_ReturnEvent" />
+    <bpmn:sequenceFlow id="RE4" name="Возвращён" sourceRef="Gateway_ReturnEvent" targetRef="Receive_Returned" />
+    <bpmn:sequenceFlow id="RE5" name="Потерян" sourceRef="Gateway_ReturnEvent" targetRef="Receive_Lost" />
+    <bpmn:sequenceFlow id="RE6" sourceRef="Receive_Returned" targetRef="Task_RecordReturn" />
+    <bpmn:sequenceFlow id="RE7" sourceRef="Task_RecordReturn" targetRef="End_Recalled" />
+    <bpmn:sequenceFlow id="RE8" sourceRef="Receive_Lost" targetRef="Task_RegisterLoss" />
+    <bpmn:sequenceFlow id="RE9" sourceRef="Task_RegisterLoss" targetRef="Task_CreateInvestigation" />
+    <bpmn:sequenceFlow id="RE10" sourceRef="Task_CreateInvestigation" targetRef="End_Lost" />
+  </bpmn:process>
+  <bpmn:collaboration id="Collaboration_Main" name="Оформление и выдача пропуска">
+    <bpmn:participant id="Participant_Enterprise_Main" name="Предприятие" processRef="Process_Main" />
+    <bpmn:participant id="Participant_Recipient_Main" name="Получатель / посетитель" />
+    <bpmn:messageFlow id="MF_Ready" name="Пропуск готов" sourceRef="Task_NotifyReady" targetRef="Participant_Recipient_Main" />
+    <bpmn:messageFlow id="MF_Arrival" name="Явка и документ" sourceRef="Participant_Recipient_Main" targetRef="Receive_Pickup" />
+    <bpmn:messageFlow id="MF_NoPickup" name="Отказ от получения" sourceRef="Participant_Recipient_Main" targetRef="Receive_NoPickup" />
+    <bpmn:messageFlow id="MF_VisitorArrival" name="Прибытие посетителя" sourceRef="Participant_Recipient_Main" targetRef="Receive_VisitorArrival" />
+  </bpmn:collaboration>
+  <bpmn:collaboration id="Collaboration_Mandatory" name="Обязательные согласования">
+    <bpmn:participant id="Participant_Mandatory" name="Предприятие" processRef="Process_Mandatory" />
+  </bpmn:collaboration>
+  <bpmn:collaboration id="Collaboration_Additional" name="Дополнительные согласования">
+    <bpmn:participant id="Participant_Additional" name="Предприятие" processRef="Process_Additional" />
+  </bpmn:collaboration>
+  <bpmn:collaboration id="Collaboration_Recall" name="Досрочный отзыв выданного пропуска">
+    <bpmn:participant id="Participant_Enterprise_Recall" name="Предприятие" processRef="Process_Recall" />
+    <bpmn:participant id="Participant_Recipient_Recall" name="Получатель пропуска" />
+    <bpmn:messageFlow id="MF_ReturnRequest" name="Требование вернуть пропуск" sourceRef="Task_NotifyReturn" targetRef="Participant_Recipient_Recall" />
+    <bpmn:messageFlow id="MF_Returned" name="Возврат" sourceRef="Participant_Recipient_Recall" targetRef="Receive_Returned" />
+    <bpmn:messageFlow id="MF_Lost" name="Сообщение о потере" sourceRef="Participant_Recipient_Recall" targetRef="Receive_Lost" />
+  </bpmn:collaboration>
+  <bpmndi:BPMNDiagram id="Diagram_Main" name="Оформление и выдача пропуска">
+    <bpmndi:BPMNPlane id="Plane_Diagram_Main" bpmnElement="Collaboration_Main">
+      <bpmndi:BPMNShape id="Shape_Participant_Recipient_Main" bpmnElement="Participant_Recipient_Main" isHorizontal="true">
+        <dc:Bounds x="160" y="2305" width="5519" height="125" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Participant_Enterprise_Main" bpmnElement="Participant_Enterprise_Main" isHorizontal="true">
+        <dc:Bounds x="151" y="90" width="5519" height="2160" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Extra" bpmnElement="Lane_Extra" isHorizontal="true">
+        <dc:Bounds x="209" y="1890" width="5461" height="360" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Manager" bpmnElement="Lane_Manager" isHorizontal="true">
+        <dc:Bounds x="209" y="1530" width="5461" height="360" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Security" bpmnElement="Lane_Security" isHorizontal="true">
+        <dc:Bounds x="209" y="1170" width="5461" height="360" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Bureau" bpmnElement="Lane_Bureau" isHorizontal="true">
+        <dc:Bounds x="209" y="810" width="5461" height="360" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_System" bpmnElement="Lane_System" isHorizontal="true">
+        <dc:Bounds x="209" y="450" width="5461" height="360" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Init" bpmnElement="Lane_Init" isHorizontal="true">
+        <dc:Bounds x="209" y="90" width="5461" height="360" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_Application" bpmnElement="Start_Application">
+        <dc:Bounds x="263" y="241" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="240" y="98" width="124" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_Create" bpmnElement="Task_Create">
+        <dc:Bounds x="383" y="215" width="210" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_Send" bpmnElement="Task_Send">
+        <dc:Bounds x="710" y="215" width="210" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_CheckRequired" bpmnElement="Task_CheckRequired">
+        <dc:Bounds x="1020" y="575" width="215" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_Complete" bpmnElement="Gateway_Complete" isMarkerVisible="true">
+        <dc:Bounds x="1389" y="594" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1388" y="661.5" width="59" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_RequiredChoice" bpmnElement="Gateway_RequiredChoice" isMarkerVisible="true">
+        <dc:Bounds x="1708" y="234" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1775.5" y="256" width="111" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_CheckDocs" bpmnElement="Task_CheckDocs">
+        <dc:Bounds x="1570" y="935" width="228" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_DocsOK" bpmnElement="Gateway_DocsOK" isMarkerVisible="true">
+        <dc:Bounds x="1948" y="954" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1917" y="1022" width="120" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_DocChoice" bpmnElement="Gateway_DocChoice" isMarkerVisible="true">
+        <dc:Bounds x="2344" y="234" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2317" y="302" width="111" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_Cancelled" bpmnElement="End_Cancelled">
+        <dc:Bounds x="2628" y="237" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2631" y="199" width="40" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_NotifyReady" bpmnElement="Task_NotifyReady">
+        <dc:Bounds x="3668" y="575" width="267" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_PickupEvent" bpmnElement="Gateway_PickupEvent">
+        <dc:Bounds x="4098" y="594" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4088" y="662" width="77" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Receive_Pickup" bpmnElement="Receive_Pickup">
+        <dc:Bounds x="4288" y="935" width="286" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Receive_NoPickup" bpmnElement="Receive_NoPickup">
+        <dc:Bounds x="4288" y="558" width="273" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_VisitorMatch" bpmnElement="Gateway_VisitorMatch" isMarkerVisible="true">
+        <dc:Bounds x="4055" y="1063" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4038" y="1131" width="92" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_HostDecision" bpmnElement="Task_HostDecision">
+        <dc:Bounds x="4305" y="215" width="273" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_HostConfirms" bpmnElement="Gateway_HostConfirms" isMarkerVisible="true">
+        <dc:Bounds x="4735" y="234" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4583" y="256" width="142" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_CorrectRequired" bpmnElement="Task_CorrectRequired">
+        <dc:Bounds x="1307" y="217" width="221" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_CorrectDocs" bpmnElement="Task_CorrectDocs">
+        <dc:Bounds x="1994" y="217" width="234" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Call_Mandatory" bpmnElement="Call_Mandatory">
+        <dc:Bounds x="2155" y="543" width="247" height="94" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_NotifyCancel" bpmnElement="Task_NotifyCancel">
+        <dc:Bounds x="3157" y="694" width="228" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_NotifyReject" bpmnElement="Task_NotifyReject">
+        <dc:Bounds x="2597" y="503" width="228" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_Rejected" bpmnElement="End_Rejected">
+        <dc:Bounds x="2908" y="527" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2916" y="503" width="30" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Call_Additional" bpmnElement="Call_Additional">
+        <dc:Bounds x="2597" y="694" width="267" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_Type" bpmnElement="Gateway_Type" isMarkerVisible="true">
+        <dc:Bounds x="2982" y="593" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2974" y="555" width="74" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_MakePass" bpmnElement="Task_MakePass">
+        <dc:Bounds x="3204" y="923" width="286" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_CompareVisitor" bpmnElement="Task_CompareVisitor">
+        <dc:Bounds x="3617" y="1045" width="273" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Receive_VisitorArrival" bpmnElement="Receive_VisitorArrival">
+        <dc:Bounds x="3221" y="1045" width="260" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_NotifyHost" bpmnElement="Task_NotifyHost">
+        <dc:Bounds x="4312" y="681" width="260" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_PrintVisitor" bpmnElement="Task_PrintVisitor">
+        <dc:Bounds x="4667" y="694" width="247" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_CloseVisit" bpmnElement="Task_CloseVisit">
+        <dc:Bounds x="5295" y="703" width="210" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_VisitorSecurity" bpmnElement="Gateway_VisitorSecurity" isMarkerVisible="true">
+        <dc:Bounds x="5371" y="1331" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="5438.5" y="1353" width="89" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_VisitorSecurity" bpmnElement="Task_VisitorSecurity">
+        <dc:Bounds x="4803" y="1313" width="273" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_VerifyIssue" bpmnElement="Task_VerifyIssue">
+        <dc:Bounds x="4686" y="935" width="210" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_HandVisitor" bpmnElement="Task_HandVisitor">
+        <dc:Bounds x="5169" y="1045" width="221" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_VisitorIssued" bpmnElement="End_VisitorIssued">
+        <dc:Bounds x="5487" y="1069" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="5471" y="1031" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_RecordIssue" bpmnElement="Task_RecordIssue">
+        <dc:Bounds x="5155" y="935" width="210" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_Activate" bpmnElement="Task_Activate">
+        <dc:Bounds x="5143" y="503" width="234" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_BlockUnclaimed" bpmnElement="Task_BlockUnclaimed">
+        <dc:Bounds x="4623" y="558" width="234" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_Unclaimed" bpmnElement="End_Unclaimed">
+        <dc:Bounds x="4717" y="480" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4710" y="463" width="59" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_Issued" bpmnElement="End_Issued">
+        <dc:Bounds x="5527" y="529" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="5494" y="585" width="111" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_VisitCancelled" bpmnElement="End_VisitCancelled">
+        <dc:Bounds x="5547" y="727" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="5515" y="703" width="112" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Boundary_CancelMandatory" bpmnElement="Boundary_CancelMandatory">
+        <dc:Bounds x="2175" y="620" width="34" height="34" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Boundary_RequiredReject" bpmnElement="Boundary_RequiredReject">
+        <dc:Bounds x="2348" y="620" width="34" height="34" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Boundary_CancelAdditional" bpmnElement="Boundary_CancelAdditional">
+        <dc:Bounds x="2620" y="771" width="34" height="34" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_F1" bpmnElement="F1">
+        <di:waypoint x="308.8" y="263.5" />
+        <di:waypoint x="383.2" y="262.1" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F2" bpmnElement="F2">
+        <di:waypoint x="593.2" y="262.1" />
+        <di:waypoint x="710" y="262.1" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F3" bpmnElement="F3">
+        <di:waypoint x="920" y="262.1" />
+        <di:waypoint x="969.8" y="262.1" />
+        <di:waypoint x="969.8" y="622.1" />
+        <di:waypoint x="1019.6" y="622.1" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F8" bpmnElement="F8">
+        <di:waypoint x="1737" y="234" />
+        <di:waypoint x="1737" y="108" />
+        <di:waypoint x="1128" y="108" />
+        <di:waypoint x="1128" y="575" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1122" y="310" width="14" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F4" bpmnElement="F4">
+        <di:waypoint x="1234.1" y="622.1" />
+        <di:waypoint x="1389.4" y="622.8" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F5" bpmnElement="F5">
+        <di:waypoint x="1447.4" y="622.8" />
+        <di:waypoint x="1508.7" y="622.8" />
+        <di:waypoint x="1508.7" y="982.0999999999999" />
+        <di:waypoint x="1570" y="982.0999999999999" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1502" y="769" width="14" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F6" bpmnElement="F6">
+        <di:waypoint x="1418" y="594" />
+        <di:waypoint x="1418" y="311" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1409" y="392" width="19" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F7" bpmnElement="F7">
+        <di:waypoint x="1528" y="263" />
+        <di:waypoint x="1708" y="263" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F9" bpmnElement="F9">
+        <di:waypoint x="1737" y="292" />
+        <di:waypoint x="1737" y="390" />
+        <di:waypoint x="2651" y="390" />
+        <di:waypoint x="2651" y="283" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2185" y="373" width="19" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F14" bpmnElement="F14">
+        <di:waypoint x="2373" y="234" />
+        <di:waypoint x="2373" y="100" />
+        <di:waypoint x="1826" y="100" />
+        <di:waypoint x="1826" y="880" />
+        <di:waypoint x="1684" y="880" />
+        <di:waypoint x="1684" y="935" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1820" y="459" width="14" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F10" bpmnElement="F10">
+        <di:waypoint x="1797.5" y="982.0999999999999" />
+        <di:waypoint x="1948.4" y="982.8" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F11" bpmnElement="F11">
+        <di:waypoint x="2006" y="983" />
+        <di:waypoint x="2080.6" y="982.8" />
+        <di:waypoint x="2080.6" y="590" />
+        <di:waypoint x="2155" y="590" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2074" y="749" width="14" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F12" bpmnElement="F12">
+        <di:waypoint x="1977" y="954" />
+        <di:waypoint x="1977" y="108" />
+        <di:waypoint x="2112" y="108" />
+        <di:waypoint x="2112" y="217" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1968" y="497" width="19" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F13" bpmnElement="F13">
+        <di:waypoint x="2228" y="264" />
+        <di:waypoint x="2345" y="264" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F15" bpmnElement="F15">
+        <di:waypoint x="2402" y="262.8" />
+        <di:waypoint x="2627.8" y="260.3" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2506" y="228" width="19" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F21" bpmnElement="F21">
+        <di:waypoint x="3385" y="741" />
+        <di:waypoint x="3441" y="741" />
+        <di:waypoint x="3441" y="260" />
+        <di:waypoint x="2674" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F24" bpmnElement="F24">
+        <di:waypoint x="3490" y="970" />
+        <di:waypoint x="3579.2" y="970" />
+        <di:waypoint x="3579.2" y="622.1" />
+        <di:waypoint x="3668" y="622" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F25" bpmnElement="F25">
+        <di:waypoint x="3934.9" y="622.1" />
+        <di:waypoint x="4098.4" y="622.8" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F26" bpmnElement="F26">
+        <di:waypoint x="4156" y="623" />
+        <di:waypoint x="4240" y="623" />
+        <di:waypoint x="4240" y="982" />
+        <di:waypoint x="4288" y="982" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4228" y="811" width="25" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F27" bpmnElement="F27">
+        <di:waypoint x="4127" y="594" />
+        <di:waypoint x="4127" y="510" />
+        <di:waypoint x="4425" y="510" />
+        <di:waypoint x="4425" y="558" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4262" y="497" width="30" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F28" bpmnElement="F28">
+        <di:waypoint x="4574" y="982" />
+        <di:waypoint x="4686" y="982" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F32" bpmnElement="F32">
+        <di:waypoint x="4561" y="605" />
+        <di:waypoint x="4623" y="605" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F36" bpmnElement="F36">
+        <di:waypoint x="3890" y="1092" />
+        <di:waypoint x="4055" y="1092" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F37" bpmnElement="F37">
+        <di:waypoint x="4113" y="1092" />
+        <di:waypoint x="4621" y="1092" />
+        <di:waypoint x="4621" y="741" />
+        <di:waypoint x="4667" y="741" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4614" y="882" width="14" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F38" bpmnElement="F38">
+        <di:waypoint x="4084" y="1063" />
+        <di:waypoint x="4084" y="728" />
+        <di:waypoint x="4312" y="728" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4075" y="863" width="19" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F39" bpmnElement="F39">
+        <di:waypoint x="4312" y="720" />
+        <di:waypoint x="4210" y="720" />
+        <di:waypoint x="4210" y="262" />
+        <di:waypoint x="4305" y="262" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F40" bpmnElement="F40">
+        <di:waypoint x="4442" y="309" />
+        <di:waypoint x="4442" y="358" />
+        <di:waypoint x="4764" y="360" />
+        <di:waypoint x="4764" y="292" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F41" bpmnElement="F41">
+        <di:waypoint x="4793" y="263" />
+        <di:waypoint x="4940" y="263" />
+        <di:waypoint x="4940" y="1313" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4907" y="758" width="67" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F42" bpmnElement="F42">
+        <di:waypoint x="4764" y="234" />
+        <di:waypoint x="4764" y="140" />
+        <di:waypoint x="5400" y="140" />
+        <di:waypoint x="5400" y="703" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="5371" y="383" width="58" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F16" bpmnElement="F16">
+        <di:waypoint x="2402" y="590" />
+        <di:waypoint x="2484.7" y="590" />
+        <di:waypoint x="2484.7" y="741" />
+        <di:waypoint x="2597" y="741" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2452" y="713" width="67" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F20" bpmnElement="F20">
+        <di:waypoint x="2650" y="800" />
+        <di:waypoint x="2894" y="800" />
+        <di:waypoint x="2894" y="741" />
+        <di:waypoint x="3157" y="741" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F19" bpmnElement="F19">
+        <di:waypoint x="2192" y="654" />
+        <di:waypoint x="2192" y="680" />
+        <di:waypoint x="3271" y="680" />
+        <di:waypoint x="3271" y="694" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F17" bpmnElement="F17">
+        <di:waypoint x="2365" y="654" />
+        <di:waypoint x="2365" y="660" />
+        <di:waypoint x="2475" y="660" />
+        <di:waypoint x="2475" y="550" />
+        <di:waypoint x="2597" y="550" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F18" bpmnElement="F18">
+        <di:waypoint x="2825" y="550" />
+        <di:waypoint x="2908" y="550" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F22" bpmnElement="F22">
+        <di:waypoint x="2731" y="694" />
+        <di:waypoint x="2731" y="622" />
+        <di:waypoint x="2982" y="622" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F23" bpmnElement="F23">
+        <di:waypoint x="3040" y="622" />
+        <di:waypoint x="3111" y="622" />
+        <di:waypoint x="3111" y="970" />
+        <di:waypoint x="3204" y="970" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3046" y="823" width="130" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F34" bpmnElement="F34">
+        <di:waypoint x="3011" y="651" />
+        <di:waypoint x="3011" y="1092" />
+        <di:waypoint x="3221" y="1092" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2989" y="879" width="44" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F35" bpmnElement="F35">
+        <di:waypoint x="3481" y="1092" />
+        <di:waypoint x="3617" y="1092" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F44" bpmnElement="F44">
+        <di:waypoint x="5371" y="1360" />
+        <di:waypoint x="5120" y="1360" />
+        <di:waypoint x="5120" y="468" />
+        <di:waypoint x="4891" y="468" />
+        <di:waypoint x="4891" y="694" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="5087" y="879" width="67" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F46" bpmnElement="F46">
+        <di:waypoint x="4914" y="741" />
+        <di:waypoint x="5056" y="741" />
+        <di:waypoint x="5056.1" y="1092" />
+        <di:waypoint x="5169" y="1092" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F45" bpmnElement="F45">
+        <di:waypoint x="5400" y="1331" />
+        <di:waypoint x="5400" y="797" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="5415" y="1093" width="30" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F48" bpmnElement="F48">
+        <di:waypoint x="5505" y="750" />
+        <di:waypoint x="5547" y="750" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F43" bpmnElement="F43">
+        <di:waypoint x="4940" y="1407" />
+        <di:waypoint x="4940" y="1500" />
+        <di:waypoint x="5400" y="1500" />
+        <di:waypoint x="5400" y="1389" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F29" bpmnElement="F29">
+        <di:waypoint x="4896" y="982" />
+        <di:waypoint x="5155" y="982" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F47" bpmnElement="F47">
+        <di:waypoint x="5390" y="1092" />
+        <di:waypoint x="5487" y="1092" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F30" bpmnElement="F30">
+        <di:waypoint x="5260" y="935" />
+        <di:waypoint x="5260" y="597" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F31" bpmnElement="F31">
+        <di:waypoint x="5377" y="552" />
+        <di:waypoint x="5527" y="552" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_F33" bpmnElement="F33">
+        <di:waypoint x="4740" y="558" />
+        <di:waypoint x="4740" y="526" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MF_Ready" bpmnElement="MF_Ready">
+        <di:waypoint x="3802" y="669" />
+        <di:waypoint x="3802" y="2305" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3766" y="1452" width="72" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MF_Arrival" bpmnElement="MF_Arrival">
+        <di:waypoint x="4405" y="2305" />
+        <di:waypoint x="4405" y="1029" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4362" y="1614" width="85" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MF_NoPickup" bpmnElement="MF_NoPickup">
+        <di:waypoint x="4397" y="2305" />
+        <di:waypoint x="4397" y="652" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="4339" y="1973" width="101" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MF_VisitorArrival" bpmnElement="MF_VisitorArrival">
+        <di:waypoint x="3324" y="2305" />
+        <di:waypoint x="3324" y="1139" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3268" y="1733" width="113" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_Mandatory" name="Обязательные согласования">
+    <bpmndi:BPMNPlane id="Plane_Diagram_Mandatory" bpmnElement="Collaboration_Mandatory">
+      <bpmndi:BPMNShape id="Shape_Participant_Mandatory" bpmnElement="Participant_Mandatory" isHorizontal="true">
+        <dc:Bounds x="30" y="90" width="4127.6" height="1000" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Mand_Init" bpmnElement="Lane_Mand_Init" isHorizontal="true">
+        <dc:Bounds x="88" y="90" width="4069.6" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Mand_Sec" bpmnElement="Lane_Mand_Sec" isHorizontal="true">
+        <dc:Bounds x="88" y="340" width="4069.6" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Mand_Mgr" bpmnElement="Lane_Mand_Mgr" isHorizontal="true">
+        <dc:Bounds x="88" y="590" width="4069.6" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Mand_System" bpmnElement="Lane_Mand_System" isHorizontal="true">
+        <dc:Bounds x="88" y="840" width="4069.6" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_Mandatory" bpmnElement="Start_Mandatory">
+        <dc:Bounds x="107.2" y="942" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="96" y="848" width="189.5" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_MandSplit" bpmnElement="Gateway_MandSplit">
+        <dc:Bounds x="248" y="936" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="229.2" y="898" width="95.7" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_SecReview" bpmnElement="Task_SecReview">
+        <dc:Bounds x="441.6" y="418" width="210" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_SecResult" bpmnElement="Gateway_SecResult">
+        <dc:Bounds x="793.6" y="436" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="778.1" y="398" width="89" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_ProvideInfo" bpmnElement="Task_ProvideInfo">
+        <dc:Bounds x="969.6" y="168" width="266.5" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_InfoChoice" bpmnElement="Gateway_InfoChoice">
+        <dc:Bounds x="1400.8" y="186" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1382" y="148" width="95.7" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_SecReject" bpmnElement="End_SecReject">
+        <dc:Bounds x="1004.8" y="442" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="985.8" y="404" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_InfoCancel" bpmnElement="End_InfoCancel">
+        <dc:Bounds x="1585.6" y="192" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1566.6" y="154" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_MgrReview" bpmnElement="Task_MgrReview">
+        <dc:Bounds x="441.6" y="668" width="247" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_MgrResult" bpmnElement="Gateway_MgrResult">
+        <dc:Bounds x="864" y="686" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="815" y="630" width="156" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_ChangeZones" bpmnElement="Task_ChangeZones">
+        <dc:Bounds x="1814.4" y="168" width="221" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_ZoneChoice" bpmnElement="Gateway_ZoneChoice">
+        <dc:Bounds x="2184" y="186" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2165.2" y="148" width="95.7" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_MgrReject" bpmnElement="End_MgrReject">
+        <dc:Bounds x="1128" y="692" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1079.7" y="636" width="142.6" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_ZoneCancel" bpmnElement="End_ZoneCancel">
+        <dc:Bounds x="2360" y="192" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2341" y="154" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_MandJoin" bpmnElement="Gateway_MandJoin">
+        <dc:Bounds x="2500.8" y="936" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2431.7" y="880" width="196.2" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_NewHigh" bpmnElement="Gateway_NewHigh">
+        <dc:Bounds x="2694.4" y="936" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2588.4" y="1006" width="270" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_SecRecheck" bpmnElement="Task_SecRecheck">
+        <dc:Bounds x="2888" y="418" width="273" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_RecheckResult" bpmnElement="Gateway_RecheckResult">
+        <dc:Bounds x="3328" y="436" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3312.5" y="398" width="89" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_ProvideRecheck" bpmnElement="Task_ProvideRecheck">
+        <dc:Bounds x="3398.4" y="168" width="221" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_RecheckChoice" bpmnElement="Gateway_RecheckChoice">
+        <dc:Bounds x="3768" y="186" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3749.2" y="148" width="95.7" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_RecheckReject" bpmnElement="End_RecheckReject">
+        <dc:Bounds x="3556.8" y="442" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3537.8" y="404" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_RecheckCancel" bpmnElement="End_RecheckCancel">
+        <dc:Bounds x="3961.6" y="192" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3942.6" y="154" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_MandatoryApproved" bpmnElement="End_MandatoryApproved">
+        <dc:Bounds x="3926.4" y="942" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3824.5" y="886" width="249.8" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_MA1" bpmnElement="MA1">
+        <di:waypoint x="153.2" y="965" />
+        <di:waypoint x="248" y="965" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA2" bpmnElement="MA2">
+        <di:waypoint x="306" y="965" />
+        <di:waypoint x="373.8" y="965" />
+        <di:waypoint x="373.8" y="465" />
+        <di:waypoint x="441.6" y="465" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="331.8" y="681" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA3" bpmnElement="MA3">
+        <di:waypoint x="306" y="965" />
+        <di:waypoint x="373.8" y="965" />
+        <di:waypoint x="373.8" y="715" />
+        <di:waypoint x="441.6" y="715" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="322.6" y="806" width="102.4" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA4" bpmnElement="MA4">
+        <di:waypoint x="651.6" y="465" />
+        <di:waypoint x="793.6" y="465" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA5" bpmnElement="MA5">
+        <di:waypoint x="851.6" y="465" />
+        <di:waypoint x="1676.2" y="465" />
+        <di:waypoint x="1676.2" y="965" />
+        <di:waypoint x="2500.8" y="965" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2040.7" y="931" width="95.7" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA6" bpmnElement="MA6">
+        <di:waypoint x="851.6" y="465" />
+        <di:waypoint x="1004.8" y="465" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="886.2" y="431" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA7" bpmnElement="MA7">
+        <di:waypoint x="851.6" y="465" />
+        <di:waypoint x="910.6" y="465" />
+        <di:waypoint x="910.6" y="215" />
+        <di:waypoint x="969.6" y="215" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="839.3" y="288" width="142.6" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA8" bpmnElement="MA8">
+        <di:waypoint x="1236.1" y="215" />
+        <di:waypoint x="1400.8" y="215" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA9" bpmnElement="MA9">
+        <di:waypoint x="1400.8" y="215" />
+        <di:waypoint x="1372.8" y="215" />
+        <di:waypoint x="1372.8" y="108" />
+        <di:waypoint x="679.6" y="108" />
+        <di:waypoint x="679.6" y="465" />
+        <di:waypoint x="651.6" y="465" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="975" y="74" width="102.4" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA10" bpmnElement="MA10">
+        <di:waypoint x="1458.8" y="215" />
+        <di:waypoint x="1585.6" y="215" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1480.2" y="223" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA11" bpmnElement="MA11">
+        <di:waypoint x="688.6" y="715" />
+        <di:waypoint x="864" y="715" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA12" bpmnElement="MA12">
+        <di:waypoint x="922" y="715" />
+        <di:waypoint x="1711.4" y="715" />
+        <di:waypoint x="1711.4" y="965" />
+        <di:waypoint x="2500.8" y="965" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1268.9" y="681" width="95.7" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA13" bpmnElement="MA13">
+        <di:waypoint x="922" y="715" />
+        <di:waypoint x="1128" y="715" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="983" y="681" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA14" bpmnElement="MA14">
+        <di:waypoint x="922" y="715" />
+        <di:waypoint x="1368.2" y="715" />
+        <di:waypoint x="1368.2" y="215" />
+        <di:waypoint x="1814.4" y="215" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1313.7" y="431" width="109.1" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA15" bpmnElement="MA15">
+        <di:waypoint x="2035.4" y="215" />
+        <di:waypoint x="2184" y="215" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA16" bpmnElement="MA16">
+        <di:waypoint x="2184" y="215" />
+        <di:waypoint x="2156" y="215" />
+        <di:waypoint x="2156" y="108" />
+        <di:waypoint x="716.6" y="108" />
+        <di:waypoint x="716.6" y="715" />
+        <di:waypoint x="688.6" y="715" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1394.3" y="74" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA17" bpmnElement="MA17">
+        <di:waypoint x="2242" y="215" />
+        <di:waypoint x="2360" y="215" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2259" y="223" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA18" bpmnElement="MA18">
+        <di:waypoint x="2558.8" y="965" />
+        <di:waypoint x="2694.4" y="965" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA19" bpmnElement="MA19">
+        <di:waypoint x="2752.4" y="965" />
+        <di:waypoint x="3926.4" y="965" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3297.4" y="931" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA20" bpmnElement="MA20">
+        <di:waypoint x="2752.4" y="965" />
+        <di:waypoint x="2820.2" y="965" />
+        <di:waypoint x="2820.2" y="465" />
+        <di:waypoint x="2888" y="465" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2778.2" y="681" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA21" bpmnElement="MA21">
+        <di:waypoint x="3161" y="465" />
+        <di:waypoint x="3328" y="465" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA22" bpmnElement="MA22">
+        <di:waypoint x="3386" y="465" />
+        <di:waypoint x="3656.2" y="465" />
+        <di:waypoint x="3656.2" y="965" />
+        <di:waypoint x="3926.4" y="965" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3608.3" y="681" width="95.7" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA23" bpmnElement="MA23">
+        <di:waypoint x="3386" y="465" />
+        <di:waypoint x="3556.8" y="465" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3429.4" y="431" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA24" bpmnElement="MA24">
+        <di:waypoint x="3328" y="465" />
+        <di:waypoint x="3300" y="465" />
+        <di:waypoint x="3300" y="108" />
+        <di:waypoint x="3647.4" y="108" />
+        <di:waypoint x="3647.4" y="215" />
+        <di:waypoint x="3619.4" y="215" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3258" y="252.5" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA25" bpmnElement="MA25">
+        <di:waypoint x="3619.4" y="215" />
+        <di:waypoint x="3768" y="215" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA26" bpmnElement="MA26">
+        <di:waypoint x="3768" y="215" />
+        <di:waypoint x="3740" y="215" />
+        <di:waypoint x="3740" y="108" />
+        <di:waypoint x="3189" y="108" />
+        <di:waypoint x="3189" y="465" />
+        <di:waypoint x="3161" y="465" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3413.3" y="74" width="102.4" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MA27" bpmnElement="MA27">
+        <di:waypoint x="3826" y="215" />
+        <di:waypoint x="3961.6" y="215" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3851.8" y="181" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_Additional" name="Дополнительные согласования">
+    <bpmndi:BPMNPlane id="Plane_Diagram_Additional" bpmnElement="Collaboration_Additional">
+      <bpmndi:BPMNShape id="Shape_Participant_Additional" bpmnElement="Participant_Additional" isHorizontal="true">
+        <dc:Bounds x="30" y="90" width="3729" height="1040" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Add_Init" bpmnElement="Lane_Add_Init" isHorizontal="true">
+        <dc:Bounds x="88" y="90" width="3671" height="260" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Add_System" bpmnElement="Lane_Add_System" isHorizontal="true">
+        <dc:Bounds x="88" y="350" width="3671" height="260" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Add_Transport" bpmnElement="Lane_Add_Transport" isHorizontal="true">
+        <dc:Bounds x="88" y="610" width="3671" height="260" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Add_Owners" bpmnElement="Lane_Add_Owners" isHorizontal="true">
+        <dc:Bounds x="88" y="870" width="3671" height="260" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_Additional" bpmnElement="Start_Additional">
+        <dc:Bounds x="107" y="456.3" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="96" y="358" width="229.7" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_AddSplit" bpmnElement="Gateway_AddSplit">
+        <dc:Bounds x="251" y="450.3" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="232.2" y="412.3" width="95.7" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_CarRequested" bpmnElement="Gateway_CarRequested">
+        <dc:Bounds x="467" y="450.3" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="418" y="394.3" width="156" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_TransportReview" bpmnElement="Task_TransportReview">
+        <dc:Bounds x="683" y="689.4" width="247" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_CarAllowed" bpmnElement="Gateway_CarAllowed">
+        <dc:Bounds x="1115" y="710.3" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1082.8" y="654.3" width="122.5" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_RemoveCar" bpmnElement="Task_RemoveCar">
+        <dc:Bounds x="1277" y="429.4" width="312" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_ZonesRequested" bpmnElement="Gateway_ZonesRequested">
+        <dc:Bounds x="683" y="511.6" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="627.3" y="455.6" width="169.4" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_SubProcess_EachZone" bpmnElement="SubProcess_EachZone">
+        <dc:Bounds x="1277" y="957" width="338" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_AnyZone" bpmnElement="Gateway_AnyZone">
+        <dc:Bounds x="1835" y="511.6" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1729" y="455.6" width="270" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_NoZonesDecision" bpmnElement="Task_NoZonesDecision">
+        <dc:Bounds x="2033" y="169.4" width="299" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_ContinueNoZones" bpmnElement="Gateway_ContinueNoZones">
+        <dc:Bounds x="2537" y="190.3" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2518.2" y="152.3" width="95.7" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_AddCancel" bpmnElement="End_AddCancel">
+        <dc:Bounds x="2735" y="196.2" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2716" y="158.2" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_CarMerge" bpmnElement="Gateway_CarMerge">
+        <dc:Bounds x="2699" y="710.3" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2650" y="654.3" width="156" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_ZonesMerge" bpmnElement="Gateway_ZonesMerge">
+        <dc:Bounds x="2699" y="511.6" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2673.4" y="473.6" width="109.1" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_AddJoin" bpmnElement="Gateway_AddJoin">
+        <dc:Bounds x="3149" y="450.3" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3043.1" y="394.3" width="269.9" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_Additional" bpmnElement="End_Additional">
+        <dc:Bounds x="3563" y="456.2" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="3451.1" y="400.2" width="269.9" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_AD1" bpmnElement="AD1">
+        <di:waypoint x="153" y="479.3" />
+        <di:waypoint x="251" y="479.3" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD2" bpmnElement="AD2">
+        <di:waypoint x="309" y="479.3" />
+        <di:waypoint x="467" y="479.3" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="343.5" y="445.3" width="89" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD3" bpmnElement="AD3">
+        <di:waypoint x="309" y="479.3" />
+        <di:waypoint x="496" y="479.3" />
+        <di:waypoint x="496" y="540.6" />
+        <di:waypoint x="683" y="540.6" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="360.5" y="487.3" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD4" bpmnElement="AD4">
+        <di:waypoint x="525" y="479.3" />
+        <di:waypoint x="604" y="479.3" />
+        <di:waypoint x="604" y="736.4" />
+        <di:waypoint x="683" y="736.4" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="562" y="573.8" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD5" bpmnElement="AD5">
+        <di:waypoint x="525" y="479.3" />
+        <di:waypoint x="1612" y="479.3" />
+        <di:waypoint x="1612" y="739.3" />
+        <di:waypoint x="2699" y="739.3" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1026.5" y="445.3" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD6" bpmnElement="AD6">
+        <di:waypoint x="930" y="736.4" />
+        <di:waypoint x="1115" y="739.3" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD7" bpmnElement="AD7">
+        <di:waypoint x="1173" y="739.3" />
+        <di:waypoint x="2699" y="739.3" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1894" y="705.3" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD8" bpmnElement="AD8">
+        <di:waypoint x="1173" y="739.3" />
+        <di:waypoint x="1225" y="739.3" />
+        <di:waypoint x="1225" y="476.4" />
+        <di:waypoint x="1277" y="476.4" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1183" y="573.8" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD9" bpmnElement="AD9">
+        <di:waypoint x="1589" y="476.4" />
+        <di:waypoint x="2144" y="476.4" />
+        <di:waypoint x="2144" y="739.3" />
+        <di:waypoint x="2699" y="739.3" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1798.5" y="374.4" width="135.9" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD10" bpmnElement="AD10">
+        <di:waypoint x="741" y="540.6" />
+        <di:waypoint x="1009" y="540.6" />
+        <di:waypoint x="1009" y="1004" />
+        <di:waypoint x="1277" y="1004" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="967" y="738.3" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD11" bpmnElement="AD11">
+        <di:waypoint x="741" y="540.6" />
+        <di:waypoint x="2699" y="540.6" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1678" y="506.6" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD12" bpmnElement="AD12">
+        <di:waypoint x="1615" y="1004" />
+        <di:waypoint x="1725" y="1004" />
+        <di:waypoint x="1725" y="540.6" />
+        <di:waypoint x="1835" y="540.6" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD13" bpmnElement="AD13">
+        <di:waypoint x="1893" y="540.6" />
+        <di:waypoint x="2699" y="540.6" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2254" y="506.6" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD14" bpmnElement="AD14">
+        <di:waypoint x="1893" y="540.6" />
+        <di:waypoint x="1963" y="540.6" />
+        <di:waypoint x="1963" y="216.4" />
+        <di:waypoint x="2033" y="216.4" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1921" y="312.5" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD15" bpmnElement="AD15">
+        <di:waypoint x="2332" y="216.4" />
+        <di:waypoint x="2537" y="219.3" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD16" bpmnElement="AD16">
+        <di:waypoint x="2595" y="219.3" />
+        <di:waypoint x="2647" y="219.3" />
+        <di:waypoint x="2647" y="540.6" />
+        <di:waypoint x="2699" y="540.6" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2605" y="345.9" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD17" bpmnElement="AD17">
+        <di:waypoint x="2595" y="219.3" />
+        <di:waypoint x="2735" y="219.2" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2623" y="185.2" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD18" bpmnElement="AD18">
+        <di:waypoint x="2757" y="739.3" />
+        <di:waypoint x="2953" y="739.3" />
+        <di:waypoint x="2953" y="479.3" />
+        <di:waypoint x="3149" y="479.3" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD19" bpmnElement="AD19">
+        <di:waypoint x="2757" y="540.6" />
+        <di:waypoint x="2953" y="540.6" />
+        <di:waypoint x="2953" y="479.3" />
+        <di:waypoint x="3149" y="479.3" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_AD20" bpmnElement="AD20">
+        <di:waypoint x="3207" y="479.3" />
+        <di:waypoint x="3563" y="479.2" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_Recall" name="Досрочный отзыв выданного пропуска">
+    <bpmndi:BPMNPlane id="Plane_Diagram_Recall" bpmnElement="Collaboration_Recall">
+      <bpmndi:BPMNShape id="Shape_Participant_Enterprise_Recall" bpmnElement="Participant_Enterprise_Recall" isHorizontal="true">
+        <dc:Bounds x="30" y="90" width="3039.3" height="960" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Recall_Requester" bpmnElement="Lane_Recall_Requester" isHorizontal="true">
+        <dc:Bounds x="88" y="90" width="2981.3" height="320" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Recall_System" bpmnElement="Lane_Recall_System" isHorizontal="true">
+        <dc:Bounds x="88" y="410" width="2981.3" height="320" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Lane_Recall_Bureau" bpmnElement="Lane_Recall_Bureau" isHorizontal="true">
+        <dc:Bounds x="88" y="730" width="2981.3" height="320" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Start_Recall" bpmnElement="Start_Recall">
+        <dc:Bounds x="125.1" y="224.3" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="185.1" y="225.3" width="182.8" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_BlockNow" bpmnElement="Task_BlockNow">
+        <dc:Bounds x="307.1" y="523" width="286" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_NotifyReturn" bpmnElement="Task_NotifyReturn">
+        <dc:Bounds x="798.5" y="523" width="273" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_ReturnEvent" bpmnElement="Gateway_ReturnEvent">
+        <dc:Bounds x="1271.7" y="540.1" width="58" height="58" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1229.4" y="484.1" width="142.6" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Receive_Returned" bpmnElement="Receive_Returned">
+        <dc:Bounds x="1471.9" y="843" width="260" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Receive_Lost" bpmnElement="Receive_Lost">
+        <dc:Bounds x="1767.9" y="923.2" width="260" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_RecordReturn" bpmnElement="Task_RecordReturn">
+        <dc:Bounds x="1945.1" y="802" width="221" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_RegisterLoss" bpmnElement="Task_RegisterLoss">
+        <dc:Bounds x="2202.1" y="923.2" width="221" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_CreateInvestigation" bpmnElement="Task_CreateInvestigation">
+        <dc:Bounds x="2363.7" y="603.2" width="286" height="94" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_Recalled" bpmnElement="End_Recalled">
+        <dc:Bounds x="2381.9" y="856" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2330.2" y="800" width="149.3" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End_Lost" bpmnElement="End_Lost">
+        <dc:Bounds x="2873.3" y="629.9" width="46" height="46" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2791.5" y="573.9" width="209.6" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_RE1" bpmnElement="RE1">
+        <di:waypoint x="171.1" y="247.3" />
+        <di:waypoint x="239.1" y="247.3" />
+        <di:waypoint x="239.1" y="570" />
+        <di:waypoint x="307.1" y="570" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_RE2" bpmnElement="RE2">
+        <di:waypoint x="593.1" y="570" />
+        <di:waypoint x="798.5" y="570" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_RE3" bpmnElement="RE3">
+        <di:waypoint x="1071.5" y="570" />
+        <di:waypoint x="1271.7" y="569.1" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_RE4" bpmnElement="RE4">
+        <di:waypoint x="1329.7" y="569.1" />
+        <di:waypoint x="1400.8" y="569.1" />
+        <di:waypoint x="1400.8" y="890" />
+        <di:waypoint x="1471.9" y="890" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1358.8" y="695.5" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_RE5" bpmnElement="RE5">
+        <di:waypoint x="1329.7" y="569.1" />
+        <di:waypoint x="1548.8" y="569.1" />
+        <di:waypoint x="1548.8" y="970.2" />
+        <di:waypoint x="1767.9" y="970.2" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1506.8" y="735.6" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_RE6" bpmnElement="RE6">
+        <di:waypoint x="1731.9" y="890" />
+        <di:waypoint x="1838.5" y="890" />
+        <di:waypoint x="1838.5" y="849" />
+        <di:waypoint x="1945.1" y="849" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_RE7" bpmnElement="RE7">
+        <di:waypoint x="2166.1" y="849" />
+        <di:waypoint x="2274" y="849" />
+        <di:waypoint x="2274" y="879" />
+        <di:waypoint x="2381.9" y="879" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_RE8" bpmnElement="RE8">
+        <di:waypoint x="2027.9" y="970.2" />
+        <di:waypoint x="2202.1" y="970.2" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_RE9" bpmnElement="RE9">
+        <di:waypoint x="2202.1" y="970.2" />
+        <di:waypoint x="2174.1" y="970.2" />
+        <di:waypoint x="2174.1" y="428" />
+        <di:waypoint x="2677.7" y="428" />
+        <di:waypoint x="2677.7" y="650.2" />
+        <di:waypoint x="2649.7" y="650.2" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_RE10" bpmnElement="RE10">
+        <di:waypoint x="2649.7" y="650.2" />
+        <di:waypoint x="2873.3" y="652.9" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_Participant_Recipient_Recall" bpmnElement="Participant_Recipient_Recall" isHorizontal="true">
+        <dc:Bounds x="30" y="1105" width="3039.3" height="125" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_MF_ReturnRequest" bpmnElement="MF_ReturnRequest">
+        <di:waypoint x="935" y="617" />
+        <di:waypoint x="919" y="1077" />
+        <di:waypoint x="919" y="1105" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="828.9" y="795" width="196.2" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MF_Returned" bpmnElement="MF_Returned">
+        <di:waypoint x="1617.9" y="1105" />
+        <di:waypoint x="1617.9" y="965" />
+        <di:waypoint x="1601.9" y="937" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1575.9" y="1001" width="84" height="26" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_MF_Lost" bpmnElement="MF_Lost">
+        <di:waypoint x="1913.9" y="1105" />
+        <di:waypoint x="1913.9" y="1045.2" />
+        <di:waypoint x="1897.9" y="1017.2" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1842.6" y="1023.1" width="142.6" height="44" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram>
+    <bpmndi:BPMNPlane bpmnElement="SubProcess_EachZone" />
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
