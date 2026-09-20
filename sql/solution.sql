@@ -28,8 +28,14 @@ FROM pass_test.pass_requests pr
 WHERE pr.status = 'APPROVED'
 GROUP BY pr.request_id
 HAVING
-    MAX(CASE WHEN a.approval_type = 'SECURITY' THEN a.decision END) IS DISTINCT FROM 'APPROVED'
-    OR MAX(CASE WHEN a.approval_type = 'MANAGER' THEN a.decision END) IS DISTINCT FROM 'APPROVED';
+    COUNT(CASE
+        WHEN a.approval_type = 'SECURITY'
+         AND a.decision = 'APPROVED' THEN 1
+    END) = 0
+    OR COUNT(CASE
+        WHEN a.approval_type = 'MANAGER'
+         AND a.decision = 'APPROVED' THEN 1
+    END) = 0;
 
 -- Задание 4. Ошибочно разрешённый автомобильный доступ
 SELECT
@@ -44,7 +50,10 @@ WHERE p.vehicle_access_allowed = TRUE
 GROUP BY p.pass_id, p.request_id, pr.vehicle_requested
 HAVING
     pr.vehicle_requested = FALSE
-    OR MAX(CASE WHEN a.approval_type = 'TRANSPORT' THEN a.decision END) IS DISTINCT FROM 'APPROVED';
+    OR COUNT(CASE
+        WHEN a.approval_type = 'TRANSPORT'
+         AND a.decision = 'APPROVED' THEN 1
+    END) = 0;
 
 -- Задание 5. Несогласованные зоны
 SELECT
@@ -112,4 +121,14 @@ UNION ALL
 SELECT 'event', re.request_id, re.event_at, pr.created_at
 FROM pass_test.request_events re
          JOIN pass_test.pass_requests pr ON re.request_id = pr.request_id
-WHERE re.event_at < pr.created_at;
+WHERE re.event_at < pr.created_at
+
+UNION ALL
+
+SELECT
+    'request_approval' AS error_type,
+    pr.request_id,
+    pr.approved_at AS event_date,
+    pr.created_at AS request_created
+FROM pass_test.pass_requests pr
+WHERE pr.approved_at < pr.created_at;
